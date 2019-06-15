@@ -145,6 +145,7 @@ define  pLVALUE      6 // Пpиоpитет LVALUE
 
 define  tPE          1 // PE  (Windows95/NT)
 define  tELF         2 // ELF (Linux)
+define  tMENUET      3 // MENUET (Kolibri)
 
 define  mNONE        0
 define  mCON         1
@@ -4119,6 +4120,9 @@ word     Code(word P; word F; word T; word M)
             Emit(0,"xor     EBX,  EBX");
             Emit(0,"int     80H");
 
+          case Target=tMENUET:
+            Emit(0,"mcall -1");
+
           default:
             Stop(@eINTERNAL);
         end
@@ -4324,6 +4328,9 @@ void Main(char @Name)
     case Target=tELF:
       strcpy(@Text,"define @COMPILER ~"Context 2.0 for Linux~"~r~n");
 
+    case Target=tMENUET:
+      strcpy(@Text,"define @COMPILER ~"Context 3.0 for Kolibri~"~r~n");
+
     default:
       Stop(@eINTERNAL);
   end
@@ -4421,7 +4428,7 @@ void Main(char @Name)
         exit
 
       case strcmp(@Buff,"include")=0:       // Включаемый файл
-        if strcmp(@Scan(@Buff),"~"")!=0 then
+        if strcmp(@Scan(@Buff),"~"")!=0 then //"
           Stop(@eQUOTEXP);
         end
 
@@ -4985,6 +4992,13 @@ void Main(char @Name)
     case Target=tELF:
       Decl("format  ELF      executable");
 
+    case Target=tMENUET:
+      Decl("use32");
+      Decl("org 0");
+      Decl("");
+      Decl("  db     'MENUET01'");
+      Decl("  dd     1");
+
     default:
       Stop(@eINTERNAL);
   end
@@ -5002,16 +5016,16 @@ void Main(char @Name)
   end
 
   Decl("");
-//Decl(".code");                                      // TASM
-//Decl("section ~".code~" code readable executable"); // FASM
 
   select
     case Target=tPE:
       Decl("section ~".code~" code readable executable");
 
     case Target=tELF:
-    //Decl("section readable executable");
       Decl("segment readable executable");            // FASM 1.66
+
+    case Target=tMENUET:
+      Decl("");
 
     default:
       Stop(@eINTERNAL);
@@ -5055,6 +5069,25 @@ void Main(char @Name)
     end
 
     inc I;
+  end
+
+  if Target=tMENUET then
+      word  P=0;
+      while P<nDict do
+        if Dict[P].Class=cFUNC & Dict[P].Sub = sMAIN & Dict[P].Flag!=0 then
+          exit
+        end
+        inc P;
+      end
+      Decl(@strcat(@strcpy(@Buff,"  dd     @"),@str(Dict[P].Value)));
+
+      Decl("  dd     I_END");
+      Decl("  dd     MEM");
+      Decl("  dd     STACKTOP");
+      Decl("  dd     0");
+      Decl("  dd     0");
+      Decl("");
+      Decl("include ~"macros.inc~"");
   end
 
   word nLib=0;
@@ -5193,6 +5226,9 @@ void Main(char @Name)
     case Target=tELF:
     //Decl("section readable writeable");
       Decl("segment readable writeable");            // FASM 1.66
+
+    case Target=tMENUET:
+      Decl("");
 
     default:
       Stop(@eINTERNAL);
@@ -5391,10 +5427,26 @@ void Main(char @Name)
 
       Decl("");
       Decl("section ~".reloc~" fixups data readable discardable");
-  end
 
-  Decl("");
-  Emit(0,@strcat(@strcpy(@Buff,"entry   @"),@str(S)));
+      Decl("");
+      Emit(0,@strcat(@strcpy(@Buff,"entry   @"),@str(S)));
+
+    case Target=tELF:
+
+      Decl("");
+      Emit(0,@strcat(@strcpy(@Buff,"entry   @"),@str(S)));
+
+    case Target=tMENUET:
+
+      Decl("I_END:");
+      Decl("  rb 4096");
+      Decl("align 16");
+      Decl("STACKTOP:");
+      Decl("MEM:");
+
+    default:
+      Stop(@eINTERNAL);
+  end
 
   if nText>0 then
   //write(hText,@Text,nText);
@@ -5460,7 +5512,6 @@ begin
     inc  K;
 
     if   K>=nBUFF then
-    //puts("Слишком длинное имя файла~r~n");
       puts(@eLONGFILENAME);
       puts("~r~n");
       return
@@ -5481,7 +5532,6 @@ begin
     inc  M;
 
     if   M>=nBUFF then
-    //puts("Неизвестный паpаметp~r~n");
       puts(@eWRONGPARM);
       puts("~r~n");
       return
@@ -5492,13 +5542,14 @@ begin
   Dest[M]=#0;
 
   if K=0 then
-    puts("Тpанслятоp языка Context. Веpсия 2.1~r~n");
-    puts("(C) Хохлов А.В.  г.Москва  1995-2007~r~n");
-  //puts("Использование: context <файл> [/c|w]~r~n");
-    puts("Использование:   context <src> [tgt]~r~n");
-    puts("Фоpмат  (tgt):  /c  - Win32 console~r~n");
-    puts("                /w  - Win32 gui~r~n");
-    puts("                /l  - Linux~r~n");
+    puts("Translator lang Context. Version 3.0~r~n");
+    puts("(C) Khokhlov A.V.  Moscow  1995-2007~r~n");
+    puts("(cc) Qeos          Moscow  2019-2019~r~n");
+    puts("Using:   context <src> [tgt]~r~n");
+    puts("Format (tgt):  /c  - Win32 console~r~n");
+    puts("               /w  - Win32 gui~r~n");
+    puts("               /l  - Linux~r~n");
+    puts("               /k  - Kolibri~r~n");
 
     return
   end
@@ -5597,7 +5648,6 @@ begin
 
   if pExt=0 then
     if K+4>=nBUFF then
-    //puts("Слишком длинное имя файла~r~n");
       puts(@eLONGFILENAME);
       puts("~r~n");
       return
@@ -5610,7 +5660,6 @@ begin
   end
 
   if K-pName>=nINFO then
-  //puts("Слишком длинное имя файла~r~n");
     puts(@eLONGFILENAME);
     puts("~r~n");
     return
@@ -5620,41 +5669,36 @@ begin
 
   select
     case strcmp(@Dest,"/c")=0:
-    //strcpy(@Dest,"CONSOLE");
 
       Target=tPE;
       Mode  =mCON;
 
     case strcmp(@Dest,"/w")=0:
-    //strcpy(@Dest,"GUI");
 
       Target=tPE;
       Mode  =mGUI;
 
     case strcmp(@Dest,"/l")=0:
-    //strcpy(@Dest,"ELF");
 
       Target=tELF;
       Mode  =mNONE;
 
+    case strcmp(@Dest,"/k")=0:
+
+      Target=tMENUET;
+      Mode  =mNONE;
+
     default:
       if strlen(@Dest)>0 then
-      //puts("Неизвестный паpаметp~r~n");
         puts(@eWRONGPARM);
         puts("~r~n");
         return
       end
 
-    //strcpy(@Dest,"CONSOLE");
-
-    //Target=tPE;
-    //Mode  =mCON;
   end
 
   hText=open(@Name);
-//if hText =$FFFFFFFF then
   if hText>=$80000000 then
-  //puts(@strcat(@strcpy(@Name,@Info),"(0): Невозможно откpыть файл~r~n"));
     puts(@eNOFILE);
     puts("~r~n");
     return
@@ -5664,8 +5708,4 @@ begin
 
   Main  (@Name);
 
-  asm
-; tests
-    mov eax, 0x1000000
-  end
 end

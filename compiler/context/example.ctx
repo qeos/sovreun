@@ -1,0 +1,21 @@
+//
+
+include "kolibri.ctx"
+
+word sc;
+
+void draw_window()
+  inc sc;
+  asm
+    mcall 12, 1
+    mcall 48, 3, sc,sizeof.system_colors
+  end
+end
+
+void red()
+  draw_window();
+end
+
+begin
+  red();
+end

@@ -1,0 +1,8 @@
+﻿//
+//define ExitProcess -1
+
+begin
+asm
+adsf
+end
+end
